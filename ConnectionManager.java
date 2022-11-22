@@ -16,10 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.*;
 
 public class ConnectionManager {
     enum conOptions {
@@ -74,6 +71,7 @@ public class ConnectionManager {
     public WebSocketClient client = null;
     public MainInitiator mainInitiator = null;
 
+    public HashMap<String, Integer> ChampHash = new HashMap<>();
 
     public ConnectionManager(MainInitiator mainInitiator) {
         this.preUrl = null;
@@ -87,7 +85,7 @@ public class ConnectionManager {
     }
 
     public void init() {
-        System.out.println(getLatestVersion());
+        buildChampMap();
         InputStream is = null;
         try{
             String absolutePath = new File("").getAbsolutePath();
@@ -146,13 +144,35 @@ public class ConnectionManager {
                     .header("Authorization", authString)
                     .build();
             client1.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenApply(HttpResponse::body);
+                    .thenApply(HttpResponse::body).join();
 
             success = true;
         } catch (Exception e) {
             e.printStackTrace();
         }
         return success;
+    }
+
+    public void buildChampMap() {
+        try {
+            String s = getLatestVersion();
+            URL url = new URL("https://ddragon.leagueoflegends.com/cdn/"+s+"/data/en_US/champion.json");
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("GET");
+            JSONObject resp = (JSONObject) getResponse(responseFormat.JSON_OBJECT, con);
+            if (resp!=null) {
+                System.out.println("Initializing Champ Hash Map for Version \"" + s + "\"");
+                JSONObject champs = resp.getJSONObject("data");
+                Iterator<String> keys = champs.keys();
+                while (keys.hasNext()) {
+                    String key = keys.next();
+                    JSONObject current = champs.getJSONObject(key);
+                    this.ChampHash.put(current.getString("name"), current.getInt("key"));
+                }
+            }
+        } catch (Exception e) {
+            System.out.println(e);
+        }
     }
 
     /*private static void allowHttpMethods(String... methods) {

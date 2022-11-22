@@ -13,18 +13,20 @@ public class TaskManager {
         allTasks = new HashMap<>();
     }
 
+    public synchronized void removeTask(Task.tasks task) {
+        allTasks.remove(task);
+    }
 
-
-    public void createTask(Task.tasks task, MainInitiator mainInitiator, Object args) {
+    public synchronized void createTask(Task.tasks task, Object args) {
         if(allTasks.containsKey(task)) {
             return;
         }
-        Task newTask = new Task(task, mainInitiator, args);
+        Task newTask = new Task(task, this.mainInitiator, args);
         allTasks.put(task, newTask);
     }
 
-    public void createTask(Task.tasks task, MainInitiator mainInitiator) {
-        createTask(task, mainInitiator, null);
+    public void createTask(Task.tasks task) {
+        createTask(task, null);
     }
 
     public void update(JSONArray jsonArray) {

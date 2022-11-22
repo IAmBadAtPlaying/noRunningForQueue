@@ -79,27 +79,27 @@ public class Task {
             if("OnJsonApiEvent_lol-champ-select_v1_session".equals(outerArray.getString(1))) { // Eigentlich nur bei Init nach Pick-Order schauen, dann ob bei actions, ally action mit der summoner ID in progress ist
                 JSONObject outerObject = outerArray.getJSONObject(2);
                 if (!alreadyInitialized) {
-                    saveData = outerObject.getJSONObject("data").getInt("localPlayerCellId");
+                    System.out.println("Init localPlayerCellId");
+                    this.saveData = outerObject.getJSONObject("data").getInt("localPlayerCellId");
                     alreadyInitialized = true;
                 }
                 JSONArray actionArray = outerObject.getJSONObject("data").getJSONArray("actions");
-                System.out.println(actionArray);
-                outer: for(int i = 0; i < actionArray.length(); i++) {
+                System.out.println(actionArray.toString());
+                outer: for(int i = 2; i < actionArray.length(); i++) {
                     JSONArray actionSubArray = actionArray.getJSONArray(i);
                     for (int j = 0; j < actionSubArray.length(); j++) {
                         JSONObject action = actionSubArray.getJSONObject(j);
                         if(action.getInt("actorCellId") == (int) saveData) { // CellIdFrom my Team
-                            System.out.println("Found ActorCell!");
-                            System.out.println(action.toString());
-                            if(action.getBoolean("isAllyAction") == true && action.getBoolean("isInProgress") == true && "pick".equals(action.getString("type"))) {
+                            System.out.println("Found ActorCell! "+ saveData);
+                            if(action.getBoolean("isAllyAction") && action.getBoolean("isInProgress") && "pick".equals(action.getString("type"))) {
                                 //TODO: Stop input for any other, reset upon dodge!
                                 actionId = action.getInt("id");
                                 action.put("championId", (int) args); //Put ChampionId here!
                                 action.remove("pickTurn");
-                                System.out.println(action.toString());
                                 pickChamp(action, actionId);
+                                break outer;
                             }
-                        } else break outer;
+                        } else break;
                     }
                 }
             }
@@ -109,8 +109,7 @@ public class Task {
                     if("lobby".equals(outerObject.getString("data"))) {
                         resetAutoPickChamp();
                     }
-                    if("GameStart".equals(outerObject.getString("data"))) {
-                        mainInitiator.getTaskManager().allTasks.remove(tasks.AUTO_PICK_CHAMP);
+                    if("None".equals(outerObject.getString("data"))||"GameStart".equals(outerObject.getString("data"))) {
                     }
                 }
             }
@@ -139,7 +138,6 @@ public class Task {
                             acceptReadyCheck();
                         }
                         case GAME_START -> {
-                            mainInitiator.getTaskManager().allTasks.remove(tasks.AUTO_ACCEPT_QUEUE);
                         }
                         default -> {}
                     }
