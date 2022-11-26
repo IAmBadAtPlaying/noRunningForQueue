@@ -2,6 +2,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.HttpURLConnection;
+import java.util.ArrayList;
 
 public class Task {
     enum tasks {
@@ -41,15 +42,18 @@ public class Task {
 
     private tasks task;
     private MainInitiator mainInitiator;
-    private Object args;
+    private Object[] args;
     private state currentState;
-    private Boolean alreadyInitialized = false;
-    private Object saveData;
 
-    public Task(tasks task, MainInitiator mainInitiator, Object args) {
+    private ArrayList<Object> saveDataa;
+
+    public Task(tasks task, MainInitiator mainInitiator, Object[] args) {
         this.task = task;
         this.mainInitiator = mainInitiator;
         this.args = args;
+        if(args!=null) {
+            resetAutoPickChamp();
+        }
     }
 
     public Task(tasks task, MainInitiator mainInitiator) {
@@ -66,9 +70,58 @@ public class Task {
             case AUTO_PICK_CHAMP -> {
                 updateAutoPickChamp(array);
             }
+            case AUTO_BAN_CHAMP -> {
+                updateAutoBanChamp(array);
+            }
             default -> {
 
             }
+        }
+    }
+
+    private synchronized void updateAutoBanChamp(JSONArray array) {
+        try {
+            Integer actionId = null;
+            JSONArray outerArray = array;
+            if("OnJsonApiEvent_lol-champ-select_v1_session".equals(outerArray.getString(1))) {
+                if((Boolean) saveDataa.get(2)) {
+                    return;
+                }
+                JSONObject outerObject = outerArray.getJSONObject(2);
+                if(!(Boolean) saveDataa.get(1)) {
+                    System.out.println("Init localPlayerCellId");
+                    this.saveDataa.set(0, outerObject.getJSONObject("data").getInt("localPlayerCellId"));
+                    saveDataa.set(1, true);
+                }
+                JSONArray actionArray = outerObject.getJSONObject("data").getJSONArray("actions");
+                System.out.println();
+                for (int j = 0; j < actionArray.length(); j++) {
+                    JSONArray actionSubArray = actionArray.getJSONArray(j);
+                    for(int i = 0; i < actionSubArray.length(); i++) {
+                        JSONObject action = actionSubArray.getJSONObject(i);
+                        if(action.getInt("actorCellId") == (int) this.saveDataa.get(0)) {
+                            if(action.getBoolean("isAllyAction") && "ban".equals(action.getString("type")) && action.getBoolean("isInProgress")) {
+                                actionId = action.getInt("id");
+                                action.put("championId", (int) args[0]); //Put ChampionId here!
+                                pickChamp(action,actionId);
+                            }
+                        }
+                    }
+                }
+            }
+            if("OnJsonApiEvent_lol-gameflow_v1_gameflow-phase".equals(outerArray.getString(1))) {
+                JSONObject outerObject = outerArray.getJSONObject(2);
+                if("Update".equals(outerObject.getString("eventType"))) {
+                    if("Lobby".equals(outerObject.getString("data"))) {
+                        resetAutoPickChamp();
+                    }
+                    if("None".equals(outerObject.getString("data"))||"GameStart".equals(outerObject.getString("data"))) {
+                        resetAutoPickChamp();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -77,40 +130,45 @@ public class Task {
             Integer actionId = null;
             JSONArray outerArray = array;
             if("OnJsonApiEvent_lol-champ-select_v1_session".equals(outerArray.getString(1))) { // Eigentlich nur bei Init nach Pick-Order schauen, dann ob bei actions, ally action mit der summoner ID in progress ist
+                if((Boolean) saveDataa.get(2)) {
+                    return;
+                }
                 JSONObject outerObject = outerArray.getJSONObject(2);
-                if (!alreadyInitialized) {
-                    saveData = outerObject.getJSONObject("data").getInt("localPlayerCellId");
-                    alreadyInitialized = true;
+                if (!(Boolean) saveDataa.get(1)) {
+                    System.out.println("Init localPlayerCellId");
+                    this.saveDataa.set(0, outerObject.getJSONObject("data").getInt("localPlayerCellId"));
+                    saveDataa.set(1, true);
                 }
                 JSONArray actionArray = outerObject.getJSONObject("data").getJSONArray("actions");
-                System.out.println(actionArray);
+                System.out.println(actionArray.toString());
                 outer: for(int i = 0; i < actionArray.length(); i++) {
                     JSONArray actionSubArray = actionArray.getJSONArray(i);
                     for (int j = 0; j < actionSubArray.length(); j++) {
                         JSONObject action = actionSubArray.getJSONObject(j);
-                        if(action.getInt("actorCellId") == (int) saveData) { // CellIdFrom my Team
-                            System.out.println("Found ActorCell!");
-                            System.out.println(action.toString());
-                            if(action.getBoolean("isAllyAction") == true && action.getBoolean("isInProgress") == true && "pick".equals(action.getString("type"))) {
-                                //TODO: Stop input for any other, reset upon dodge!
+                        if(action.getInt("actorCellId") == (int) this.saveDataa.get(0)) { // CellIdFrom my Team
+                            if(action.getBoolean("isAllyAction") && "pick".equals(action.getString("type"))) {
                                 actionId = action.getInt("id");
-                                action.put("championId", (int) args); //Put ChampionId here!
+                                action.put("championId", (int) args[0]); //Put ChampionId here!
                                 action.remove("pickTurn");
-                                System.out.println(action.toString());
-                                pickChamp(action, actionId);
+                                if(action.getBoolean("isInProgress")) {
+                                    pickChamp(action, actionId);
+                                } else if(!(Boolean) saveDataa.get(3)) {
+                                    hoverChamp(action, actionId);
+                                }
+                                break outer;
                             }
-                        } else break outer;
+                        }
                     }
                 }
             }
             if("OnJsonApiEvent_lol-gameflow_v1_gameflow-phase".equals(outerArray.getString(1))) {
                 JSONObject outerObject = outerArray.getJSONObject(2);
                 if("Update".equals(outerObject.getString("eventType"))) {
-                    if("lobby".equals(outerObject.getString("data"))) {
+                    if("Lobby".equals(outerObject.getString("data"))) {
                         resetAutoPickChamp();
                     }
-                    if("GameStart".equals(outerObject.getString("data"))) {
-                        mainInitiator.getTaskManager().allTasks.remove(tasks.AUTO_PICK_CHAMP);
+                    if("None".equals(outerObject.getString("data"))||"GameStart".equals(outerObject.getString("data"))) {
+                        resetAutoPickChamp();
                     }
                 }
             }
@@ -120,7 +178,13 @@ public class Task {
     }
 
     private void resetAutoPickChamp() {
-        alreadyInitialized = false;
+        saveDataa = new ArrayList<Object>();
+        saveDataa.add(0, -1);
+        saveDataa.add(1,false); //alreadyInitialized
+        saveDataa.add(2, false); //alreadyPicked
+        if(args.length > 1) {
+            saveDataa.add(3, args[1]); //alreadyHovered
+        }
     }
 
     private synchronized void updateAutoAcceptQueue(JSONArray array) {
@@ -131,6 +195,9 @@ public class Task {
                 if("Update".equals(outerObject.getString("eventType"))) {
                     String data = outerObject.getString("data");
                     currentState = state.getByName(data);
+                    if(currentState == null) {
+                        return;
+                    }
                     switch (currentState) {
                         case LOBBY -> {
                             //TODO: Reset Upon Dodge! -> Taskabhängig!
@@ -139,7 +206,6 @@ public class Task {
                             acceptReadyCheck();
                         }
                         case GAME_START -> {
-                            mainInitiator.getTaskManager().allTasks.remove(tasks.AUTO_ACCEPT_QUEUE);
                         }
                         default -> {}
                     }
@@ -152,17 +218,31 @@ public class Task {
 
     private void pickChamp(JSONObject information, int id) {
         try {
-            System.out.println("Should be picking!");
+                System.out.println("Should be picking!");
+                boolean success = mainInitiator.getConnectionManager().buildPatchRequest("/lol-champ-select/v1/session/actions/"+id, information.toString());
+                if (success) {
+                    HttpURLConnection con = mainInitiator.connectionManager.buildConnection(ConnectionManager.conOptions.POST, "/lol-champ-select/v1/session/actions/"+id+"/complete" , "{}");
+                    con.getResponseCode();
+                    con.disconnect();
+                    this.saveDataa.set(2, true);
+                }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void hoverChamp(JSONObject information, int id) {
+        try {
+            System.out.println("Should be hovering");
             boolean success = mainInitiator.getConnectionManager().buildPatchRequest("/lol-champ-select/v1/session/actions/"+id, information.toString());
             if (success) {
-                HttpURLConnection con = mainInitiator.connectionManager.buildConnection(ConnectionManager.conOptions.POST, "/lol-champ-select/v1/session/actions/"+id+"/complete" , "{}");
-                con.getResponseCode();
-                con.disconnect();
+                this.saveDataa.set(3,true);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
 
     private void acceptReadyCheck() {
         try {

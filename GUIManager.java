@@ -8,6 +8,7 @@ import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Arrays;
 
 public class GUIManager {
 
@@ -18,8 +19,42 @@ public class GUIManager {
     JButton btnMainLobby;
     JButton btnMainSummoner;
     JButton btnMainLoot;
+    JButton btnMainTasks;
 
     JLayeredPane mainLayeredPage;
+    JPanel panelTasks;
+
+    JPanel panelTasksOptions;
+
+    JPanel panelTasksOptionsOne;
+
+    JPanel panelTasksOptionsTwo;
+    JComboBox comboBoxTasksOptionsTwoChamps;
+    JLabel lblTaskOptionsTwoChamp;
+    JRadioButton rdbtnTaskOptionsTwoHover;
+
+    JPanel panelTasksOptionsThree;
+    JComboBox comboBoxTasksOptionsThreeChamps;
+    JLabel lblTaskOptionsThreeChamp;
+
+    JPanel panelTaskOverview;
+
+    JPanel panelTaskOne;
+    JPanel panelTaskTwo;
+    JPanel panelTaskThree;
+
+    JButton btnTaskOneOptions;
+    JButton btnTaskTwoOptions;
+    JButton btnTaskThreeOptions;
+
+    JRadioButton rdbtnTaskOneActivate;
+    JRadioButton rdbtnTaskTwoActivate;
+    JRadioButton rdbtnTaskThreeActivate;
+
+    JTextPane txtpnTaskOne;
+    JTextPane txtpnTaskTwo;
+    JTextPane txtpnTaskThree;
+
     JPanel panelLobby;
 
     JButton btnLobbySRBlind;
@@ -31,6 +66,7 @@ public class GUIManager {
 
     JComboBox comboBoxLobbyPosition1;
     JComboBox comboBoxLobbyPositionTwo;
+    JComboBox comboBoxPickChamp;
 
     JPanel panelLobbyMembers;
     JLabel currentQueue;
@@ -55,7 +91,7 @@ public class GUIManager {
     }
 
     public void update(JSONArray jsonArray) {
-        System.out.println(jsonArray.toString());
+
     }
 
     public void lobbyUpdateMembers() {
@@ -122,7 +158,6 @@ public class GUIManager {
         panelLobby.add(panelLobbyMembers);
         panelLobby.add(btnLobbyStartQueue);
         panelLobby.add(DebugRefresh);
-        panelLobby.add(tglbtnQueueAutoAccept);
         panelLobby.add(currentQueue);
         panelLobby.repaint();
         panelLobby.revalidate();
@@ -134,8 +169,6 @@ public class GUIManager {
                 return;
             }
         }
-        if(tglbtnQueueAutoAccept.isSelected()) {
-            mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_ACCEPT_QUEUE, mainInitiator, null);
             try {
                 HttpURLConnection con = mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.POST, "/lol-lobby/v2/lobby/matchmaking/search", "");
                 con.getResponseCode();
@@ -143,15 +176,6 @@ public class GUIManager {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        } else {
-            try {
-                HttpURLConnection con = mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.POST, "/lol-lobby/v2/lobby/matchmaking/search", "");
-                con.getResponseCode();
-                con.disconnect();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
     }
 
 
@@ -272,6 +296,13 @@ public class GUIManager {
         mainLayeredPage.revalidate();
     }
 
+    private void switchTaskOptionPage(JPanel newPanel) {
+        panelTasksOptions.removeAll();
+        panelTasksOptions.add(newPanel);
+        panelTasksOptions.repaint();
+        panelTasksOptions.revalidate();
+    }
+
 
     public void init() {
         frame = new JFrame();
@@ -312,6 +343,16 @@ public class GUIManager {
         });
         btnMainLoot.setBounds(360, 21, 165, 40);
         panelMainSelector.add(btnMainLoot);
+
+        btnMainTasks = new JButton("Show Tasks");
+        btnMainTasks.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                switchMainPage(panelTasks);
+            }
+        });
+        btnMainTasks.setBounds(535, 21, 165, 40);
+        panelMainSelector.add(btnMainTasks);
 
         mainLayeredPage = new JLayeredPane();
         mainLayeredPage.setBounds(10, 112, 1244, 558);
@@ -425,23 +466,215 @@ public class GUIManager {
         panelLobbyMembers.setLayout(new GridLayout(1, 0, 0, 0));
 
 
+
         DebugRefresh = new JButton("DEBUG Refresh");
         DebugRefresh.setBounds(1145, 524, 89, 23);
         DebugRefresh.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_PICK_CHAMP,mainInitiator,22);
+                refreshLobby();
             }
         });
         panelLobby.add(DebugRefresh);
+
 
         currentQueue = new JLabel("No Queue Selected");
         currentQueue.setBounds(900,11,150,23);
         panelLobby.add(currentQueue);
 
-        tglbtnQueueAutoAccept = new JToggleButton("Auto Accept Queue");
-        tglbtnQueueAutoAccept.setBounds(1084, 11, 150, 23);
-        panelLobby.add(tglbtnQueueAutoAccept);
+        panelTasks = new JPanel();
+        panelTasks.setBounds(0, 0, 1244, 558);
+        panelTasks.setLayout(new GridLayout(1, 0, 0, 0));
+
+        panelTaskOverview = new JPanel();
+        panelTasks.add(panelTaskOverview);
+        GridBagLayout gbl_panelTaskOverview = new GridBagLayout();
+        gbl_panelTaskOverview.columnWidths = new int[]{0, 0};
+        gbl_panelTaskOverview.rowHeights = new int[]{0, 0, 0, 0};
+        gbl_panelTaskOverview.columnWeights = new double[]{1.0, Double.MIN_VALUE};
+        gbl_panelTaskOverview.rowWeights = new double[]{1.0, 1.0, 1.0, Double.MIN_VALUE};
+        panelTaskOverview.setLayout(gbl_panelTaskOverview);
+
+        panelTaskOne = new JPanel();
+        panelTaskOne.setLayout(null);
+        GridBagConstraints gbc_panelTaskOne = new GridBagConstraints();
+        gbc_panelTaskOne.insets = new Insets(0, 0, 5, 0);
+        gbc_panelTaskOne.fill = GridBagConstraints.BOTH;
+        gbc_panelTaskOne.gridx = 0;
+        gbc_panelTaskOne.gridy = 0;
+        panelTaskOverview.add(panelTaskOne, gbc_panelTaskOne);
+
+        btnTaskOneOptions = new JButton("Options");
+        btnTaskOneOptions.setBounds(523, 11, 89, 23);
+        btnTaskOneOptions.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                switchTaskOptionPage(panelTasksOptionsOne);
+            }
+        });
+        panelTaskOne.add(btnTaskOneOptions);
+
+        rdbtnTaskOneActivate = new JRadioButton("Activate");
+        rdbtnTaskOneActivate.setBounds(6, 7, 80, 23);
+        rdbtnTaskOneActivate.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (rdbtnTaskOneActivate.isSelected()) {
+                    mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_ACCEPT_QUEUE);
+                } else {
+                    mainInitiator.getTaskManager().removeTask(Task.tasks.AUTO_ACCEPT_QUEUE);
+                }
+            }
+        });
+        panelTaskOne.add(rdbtnTaskOneActivate);
+
+        txtpnTaskOne = new JTextPane();
+        txtpnTaskOne.setText("Activate this option to Automatically accept Ready Checks \r\n(for now only if you are the one to start the queue)");
+        txtpnTaskOne.setBounds(6, 37, 500, 134);
+        panelTaskOne.add(txtpnTaskOne);
+
+        panelTaskTwo = new JPanel();
+        panelTaskTwo.setLayout(null);
+        GridBagConstraints gbc_panelTaskTwo = new GridBagConstraints();
+        gbc_panelTaskTwo.insets = new Insets(0, 0, 5, 0);
+        gbc_panelTaskTwo.fill = GridBagConstraints.BOTH;
+        gbc_panelTaskTwo.gridx = 0;
+        gbc_panelTaskTwo.gridy = 1;
+        panelTaskOverview.add(panelTaskTwo, gbc_panelTaskTwo);
+
+        btnTaskTwoOptions = new JButton("Options");
+        btnTaskTwoOptions.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                switchTaskOptionPage(panelTasksOptionsTwo);
+            }
+        });
+        btnTaskTwoOptions.setBounds(523, 11, 89, 23);
+        panelTaskTwo.add(btnTaskTwoOptions);
+
+        Object[] champArray = mainInitiator.getConnectionManager().ChampHash.keySet().toArray();
+        Arrays.sort(champArray);
+
+        rdbtnTaskTwoActivate = new JRadioButton("Activate");
+        rdbtnTaskTwoActivate.setBounds(6, 7, 80, 23);
+        rdbtnTaskTwoActivate.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(rdbtnTaskTwoActivate.isSelected()) {
+                    Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsTwoChamps.getSelectedIndex()]),!rdbtnTaskOptionsTwoHover.isSelected()};
+                    mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_PICK_CHAMP, arr);
+                } else {
+                    mainInitiator.getTaskManager().removeTask(Task.tasks.AUTO_PICK_CHAMP);
+                }
+            }
+        });
+        panelTaskTwo.add(rdbtnTaskTwoActivate);
+
+        txtpnTaskTwo = new JTextPane();
+        txtpnTaskTwo.setText("Activate this option if you want to Auto-Pick a certian Champ\r\n(some Bugs still may happen WIP)");
+        txtpnTaskTwo.setBounds(6, 37, 500, 134);
+        panelTaskTwo.add(txtpnTaskTwo);
+
+        panelTaskThree = new JPanel();
+        panelTaskThree.setLayout(null);
+        GridBagConstraints gbc_panelTaskThree = new GridBagConstraints();
+        gbc_panelTaskThree.fill = GridBagConstraints.BOTH;
+        gbc_panelTaskThree.gridx = 0;
+        gbc_panelTaskThree.gridy = 2;
+        panelTaskOverview.add(panelTaskThree, gbc_panelTaskThree);
+
+        btnTaskThreeOptions = new JButton("Options");
+        btnTaskThreeOptions.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                switchTaskOptionPage(panelTasksOptionsThree);
+            }
+        });
+        btnTaskThreeOptions.setBounds(523, 11, 89, 23);
+        panelTaskThree.add(btnTaskThreeOptions);
+
+        rdbtnTaskThreeActivate = new JRadioButton("Activate");
+        rdbtnTaskThreeActivate.setBounds(10, 7, 80, 23);
+        rdbtnTaskThreeActivate.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(rdbtnTaskThreeActivate.isSelected()) {
+                    Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsThreeChamps.getSelectedIndex()])};
+                    mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_BAN_CHAMP, arr);
+                } else {
+                    mainInitiator.getTaskManager().removeTask(Task.tasks.AUTO_BAN_CHAMP);
+                }
+            }
+        });
+        panelTaskThree.add(rdbtnTaskThreeActivate);
+
+        txtpnTaskThree = new JTextPane();
+        txtpnTaskThree.setText("Activate this option if you want to Auto-Ban a certian Champ\r\n(not implemented yet WIP)");
+        txtpnTaskThree.setBounds(10, 37, 500, 134);
+        panelTaskThree.add(txtpnTaskThree);
+
+        panelTasksOptions = new JPanel();
+        panelTasks.add(panelTasksOptions);
+        panelTasksOptions.setLayout(null);
+
+        panelTasksOptionsOne = new JPanel();
+        panelTasksOptionsOne.setBounds(0, 0, 622, 558);
+        panelTasksOptionsOne.setLayout(null);
+
+        panelTasksOptionsTwo = new JPanel();
+        panelTasksOptionsTwo.setBounds(0, 0, 622, 558);
+        panelTasksOptionsTwo.setLayout(null);
+
+
+        comboBoxTasksOptionsTwoChamps = new JComboBox(champArray);
+        comboBoxTasksOptionsTwoChamps.setBounds(312,11,300,50);
+        comboBoxTasksOptionsTwoChamps.setSelectedIndex(0);
+        /*listTasksOptionsTwoChamps.setLayoutOrientation(JList.VERTICAL);*/
+        comboBoxTasksOptionsTwoChamps.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsTwoChamps.getSelectedIndex()]),!rdbtnTaskOptionsTwoHover.isSelected()};
+                mainInitiator.getTaskManager().updateTask(Task.tasks.AUTO_PICK_CHAMP, arr);
+            }
+        });
+        panelTasksOptionsTwo.add(comboBoxTasksOptionsTwoChamps);
+
+
+        lblTaskOptionsTwoChamp = new JLabel("Select Champion to pick");
+        lblTaskOptionsTwoChamp.setHorizontalAlignment(SwingConstants.CENTER);
+        lblTaskOptionsTwoChamp.setBounds(10, 11, 300, 50);
+        panelTasksOptionsTwo.add(lblTaskOptionsTwoChamp);
+
+        rdbtnTaskOptionsTwoHover = new JRadioButton("Hover over Champ before pick");
+        rdbtnTaskOptionsTwoHover.setBounds(434, 90, 178, 23);
+        rdbtnTaskOptionsTwoHover.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsTwoChamps.getSelectedIndex()]),!rdbtnTaskOptionsTwoHover.isSelected()};
+                mainInitiator.getTaskManager().updateTask(Task.tasks.AUTO_PICK_CHAMP, arr);
+            }
+        });
+        panelTasksOptionsTwo.add(rdbtnTaskOptionsTwoHover);
+
+        panelTasksOptionsThree = new JPanel();
+        panelTasksOptionsThree.setBounds(0, 0, 622, 558);
+        panelTasksOptionsThree.setLayout(null);
+
+        comboBoxTasksOptionsThreeChamps = new JComboBox(champArray);
+        comboBoxTasksOptionsThreeChamps.setBounds(312,11,300,50);
+        comboBoxTasksOptionsThreeChamps.setSelectedIndex(0);
+        comboBoxTasksOptionsThreeChamps.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsThreeChamps.getSelectedIndex()])};
+                mainInitiator.getTaskManager().updateTask(Task.tasks.AUTO_BAN_CHAMP, arr);
+            }
+        });
+        panelTasksOptionsThree.add(comboBoxTasksOptionsThreeChamps);
+
+        lblTaskOptionsThreeChamp = new JLabel("Select Champion to ban");
+        lblTaskOptionsThreeChamp.setHorizontalAlignment(SwingConstants.CENTER);
+        lblTaskOptionsThreeChamp.setBounds(10, 11, 300, 50);
+        panelTasksOptionsThree.add(lblTaskOptionsThreeChamp);
+
 
         frame.setVisible(true);
     }

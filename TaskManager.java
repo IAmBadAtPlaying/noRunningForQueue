@@ -13,18 +13,32 @@ public class TaskManager {
         allTasks = new HashMap<>();
     }
 
+    public synchronized void removeTask(Task.tasks task) {
+        if(allTasks.containsKey(task)) {
+            System.out.println("Removed Task: " + task.name());
+            allTasks.remove(task);
+        }
+    }
 
-
-    public void createTask(Task.tasks task, MainInitiator mainInitiator, Object args) {
+    public synchronized void createTask(Task.tasks task, Object[] args) {
         if(allTasks.containsKey(task)) {
             return;
         }
-        Task newTask = new Task(task, mainInitiator, args);
+        System.out.println("Created Task:" + task.name());
+        Task newTask = new Task(task, this.mainInitiator, args);
         allTasks.put(task, newTask);
     }
 
-    public void createTask(Task.tasks task, MainInitiator mainInitiator) {
-        createTask(task, mainInitiator, null);
+    public synchronized void createTask(Task.tasks task) {
+        createTask(task, null);
+    }
+
+    public synchronized void updateTask(Task.tasks task, Object[] args) {
+        if(allTasks.containsKey(task)) {
+            System.out.println("Updated Task " + task.name() + " to: " + args[0]);
+            Task t = new Task(task,this.mainInitiator, args);
+            allTasks.put(task,t );
+        }
     }
 
     public void update(JSONArray jsonArray) {

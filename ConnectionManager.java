@@ -87,14 +87,17 @@ public class ConnectionManager {
     public void init() {
         buildChampMap();
         InputStream is = null;
+        File lockfile = null;
         try{
-            String absolutePath = new File("").getAbsolutePath();
-            File pathFile = new File(absolutePath + "\\locationfile");
-            FileInputStream pathFileInput = new FileInputStream(pathFile);
-            String lockFilePath = inputStreamToString(pathFileInput);
-            lockFilePath = lockFilePath.trim();
-
-            File lockfile = new File(lockFilePath);
+            for(ProcessHandle p : ProcessHandle.allProcesses().toList()) {
+                if (p.info().command().isPresent()) {
+                    String current = p.info().command().get();
+                    if(current!=null && current.contains("LeagueClient.exe")) {
+                        lockfile = new File(current.substring(0, current.lastIndexOf(System.getProperty("file.separator"))+1)+"lockfile");
+                        break;
+                    }
+                }
+            }
             is = new FileInputStream(lockfile);
             if (is == null) {
                 return;
