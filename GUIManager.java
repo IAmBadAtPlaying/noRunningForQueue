@@ -26,9 +26,16 @@ public class GUIManager {
 
     JPanel panelTasksOptions;
 
-    JPanel panelTasksOptionsTwo;
     JPanel panelTasksOptionsOne;
+
+    JPanel panelTasksOptionsTwo;
+    JComboBox comboBoxTasksOptionsTwoChamps;
+    JLabel lblTaskOptionsTwoChamp;
+    JRadioButton rdbtnTaskOptionsTwoHover;
+
     JPanel panelTasksOptionsThree;
+    JComboBox comboBoxTasksOptionsThreeChamps;
+    JLabel lblTaskOptionsThreeChamp;
 
     JPanel panelTaskOverview;
 
@@ -465,17 +472,11 @@ public class GUIManager {
         DebugRefresh.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_PICK_CHAMP,111);
+                refreshLobby();
             }
         });
         panelLobby.add(DebugRefresh);
 
-        /*Object[] champArray = mainInitiator.getConnectionManager().ChampHash.keySet().toArray();
-        Arrays.sort(champArray);
-
-        comboBoxPickChamp = new JComboBox(champArray);
-        comboBoxPickChamp.setBounds(900,524,89,23);
-        panelLobby.add(comboBoxPickChamp);*/
 
         currentQueue = new JLabel("No Queue Selected");
         currentQueue.setBounds(900,11,150,23);
@@ -518,7 +519,6 @@ public class GUIManager {
         rdbtnTaskOneActivate.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println(rdbtnTaskOneActivate.isSelected());
                 if (rdbtnTaskOneActivate.isSelected()) {
                     mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_ACCEPT_QUEUE);
                 } else {
@@ -551,13 +551,17 @@ public class GUIManager {
         btnTaskTwoOptions.setBounds(523, 11, 89, 23);
         panelTaskTwo.add(btnTaskTwoOptions);
 
+        Object[] champArray = mainInitiator.getConnectionManager().ChampHash.keySet().toArray();
+        Arrays.sort(champArray);
+
         rdbtnTaskTwoActivate = new JRadioButton("Activate");
         rdbtnTaskTwoActivate.setBounds(6, 7, 80, 23);
         rdbtnTaskTwoActivate.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if(rdbtnTaskThreeActivate.isSelected()) {
-                    mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_PICK_CHAMP, 1);
+                if(rdbtnTaskTwoActivate.isSelected()) {
+                    Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsTwoChamps.getSelectedIndex()]),!rdbtnTaskOptionsTwoHover.isSelected()};
+                    mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_PICK_CHAMP, arr);
                 } else {
                     mainInitiator.getTaskManager().removeTask(Task.tasks.AUTO_PICK_CHAMP);
                 }
@@ -592,7 +596,12 @@ public class GUIManager {
         rdbtnTaskThreeActivate.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-
+                if(rdbtnTaskThreeActivate.isSelected()) {
+                    Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsThreeChamps.getSelectedIndex()])};
+                    mainInitiator.getTaskManager().createTask(Task.tasks.AUTO_BAN_CHAMP, arr);
+                } else {
+                    mainInitiator.getTaskManager().removeTask(Task.tasks.AUTO_BAN_CHAMP);
+                }
             }
         });
         panelTaskThree.add(rdbtnTaskThreeActivate);
@@ -606,16 +615,65 @@ public class GUIManager {
         panelTasks.add(panelTasksOptions);
         panelTasksOptions.setLayout(null);
 
-        panelTasksOptionsTwo = new JPanel();
-        panelTasksOptionsTwo.setBounds(0, 0, 622, 558);
-
-
         panelTasksOptionsOne = new JPanel();
         panelTasksOptionsOne.setBounds(0, 0, 622, 558);
+        panelTasksOptionsOne.setLayout(null);
 
+        panelTasksOptionsTwo = new JPanel();
+        panelTasksOptionsTwo.setBounds(0, 0, 622, 558);
+        panelTasksOptionsTwo.setLayout(null);
+
+
+        comboBoxTasksOptionsTwoChamps = new JComboBox(champArray);
+        comboBoxTasksOptionsTwoChamps.setBounds(312,11,300,50);
+        comboBoxTasksOptionsTwoChamps.setSelectedIndex(0);
+        /*listTasksOptionsTwoChamps.setLayoutOrientation(JList.VERTICAL);*/
+        comboBoxTasksOptionsTwoChamps.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsTwoChamps.getSelectedIndex()]),!rdbtnTaskOptionsTwoHover.isSelected()};
+                mainInitiator.getTaskManager().updateTask(Task.tasks.AUTO_PICK_CHAMP, arr);
+            }
+        });
+        panelTasksOptionsTwo.add(comboBoxTasksOptionsTwoChamps);
+
+
+        lblTaskOptionsTwoChamp = new JLabel("Select Champion to pick");
+        lblTaskOptionsTwoChamp.setHorizontalAlignment(SwingConstants.CENTER);
+        lblTaskOptionsTwoChamp.setBounds(10, 11, 300, 50);
+        panelTasksOptionsTwo.add(lblTaskOptionsTwoChamp);
+
+        rdbtnTaskOptionsTwoHover = new JRadioButton("Hover over Champ before pick");
+        rdbtnTaskOptionsTwoHover.setBounds(434, 90, 178, 23);
+        rdbtnTaskOptionsTwoHover.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsTwoChamps.getSelectedIndex()]),!rdbtnTaskOptionsTwoHover.isSelected()};
+                mainInitiator.getTaskManager().updateTask(Task.tasks.AUTO_PICK_CHAMP, arr);
+            }
+        });
+        panelTasksOptionsTwo.add(rdbtnTaskOptionsTwoHover);
 
         panelTasksOptionsThree = new JPanel();
         panelTasksOptionsThree.setBounds(0, 0, 622, 558);
+        panelTasksOptionsThree.setLayout(null);
+
+        comboBoxTasksOptionsThreeChamps = new JComboBox(champArray);
+        comboBoxTasksOptionsThreeChamps.setBounds(312,11,300,50);
+        comboBoxTasksOptionsThreeChamps.setSelectedIndex(0);
+        comboBoxTasksOptionsThreeChamps.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Object[] arr = {mainInitiator.getConnectionManager().ChampHash.get(champArray[comboBoxTasksOptionsThreeChamps.getSelectedIndex()])};
+                mainInitiator.getTaskManager().updateTask(Task.tasks.AUTO_BAN_CHAMP, arr);
+            }
+        });
+        panelTasksOptionsThree.add(comboBoxTasksOptionsThreeChamps);
+
+        lblTaskOptionsThreeChamp = new JLabel("Select Champion to ban");
+        lblTaskOptionsThreeChamp.setHorizontalAlignment(SwingConstants.CENTER);
+        lblTaskOptionsThreeChamp.setBounds(10, 11, 300, 50);
+        panelTasksOptionsThree.add(lblTaskOptionsThreeChamp);
 
 
         frame.setVisible(true);
