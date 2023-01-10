@@ -15,6 +15,9 @@ public class SocketClient {
 
     public void init() {
         ConnectionManager cm = mainInitiator.getConnectionManager();
+        if(cm.lockfileContents == null) {
+            return;
+        }
         String sUri = "wss://127.0.0.1:"+cm.lockfileContents[2]+"/";
         this.client = new WebSocketClient();
         Socket socket = new Socket(mainInitiator);

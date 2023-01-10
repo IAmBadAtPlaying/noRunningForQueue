@@ -1,4 +1,5 @@
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -6,9 +7,14 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.HashMap;
+
 
 public class GUIManager {
 
@@ -70,11 +76,33 @@ public class GUIManager {
 
     JPanel panelLobbyMembers;
     JLabel currentQueue;
+    JTextField textFieldLobbyInvite;
+    JButton btnLobbyInvite;
 
-    JButton DebugRefresh;
     JToggleButton tglbtnQueueAutoAccept;
 
     JPanel panelSummoner;
+
+    JPanel panelSummonerInfo;
+    JProgressBar progressBarSummonerLvl;
+    TextField textSummonerSettingsTitle;
+    JPanel panelSummonerSettings;
+    JButton btnSummonerSettingsTokensSave;
+    TextField textSummonerSettingsTokensOne;
+    TextField textSummonerSettingsTokensTwo;
+    TextField textSummonerSettingsTokensThree;
+    JLabel lblSummonerSettingsTokensOne;
+    JLabel lblSummonerSettingsTokensTwo;
+    JLabel lblSummonerSettingsTokensThree;
+    JPanel panelSummonerSettingsTokens;
+    JLabel lblSummonerSettingsTitle;
+    JLabel lblSummonerSettingsTokensAndTitles;
+    JLabel lblSummonerSettingsTokensStatus;
+    JLabel lblSummonerInfoPicture;
+    JLabel lblSummonerInfoName;
+    JLabel lblSummonerInfoLevel;
+
+    boolean canQueue = false;
 
     MainInitiator mainInitiator;
 
@@ -82,6 +110,8 @@ public class GUIManager {
 
     String[] Positions = {"Unselected", "Top", "Jungle", "Middle", "Bottom", "Support", "Fill"};
     String[] internalPositionNames = {"UNSELECTED", "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY", "FILL"};
+
+    HashMap<Integer, String> queueMap = new HashMap<>();
 
     int positionOneIndex = 0;
     int positionTwoIndex = 0;
@@ -91,73 +121,102 @@ public class GUIManager {
     }
 
     public void update(JSONArray jsonArray) {
-
-    }
-
-    public void lobbyUpdateMembers() {
-        panelLobbyMembers.removeAll();
         try {
-            HttpURLConnection con = mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.GET, "/lol-lobby/v2/lobby/members", null);
-            Summoner[] array = (Summoner[]) mainInitiator.getConnectionManager().getResponse(ConnectionManager.responseFormat.SUMMONER_ARRAY, con);
-            switch (array.length) {
-                case 1:
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[0]));
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    break;
-                case 2:
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[1]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[0]));
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    break;
-                case 3:
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[2]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[1]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[0]));
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    break;
-                case 4:
-                    panelLobbyMembers.add(createLobbyMemberPage(array[3]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[2]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[1]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[0]));
-                    panelLobbyMembers.add(createLobbyMemberPage(null));
-                    break;
-                case 5:
-                    panelLobbyMembers.add(createLobbyMemberPage(array[4]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[3]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[2]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[1]));
-                    panelLobbyMembers.add(createLobbyMemberPage(array[0]));
-                    break;
+            JSONArray outerArray = jsonArray;
+            if("OnJsonApiEvent_lol-lobby_v2_lobby".equals(outerArray.getString(1))) {
+                JSONObject data = outerArray.getJSONObject(2);
+                if(!"/lol-lobby/v2/lobby".equals(data.getString("uri"))) {
+                    return;
+                }
+                refreshLobby();
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        panelLobbyMembers.repaint();
-        panelLobbyMembers.revalidate();
+    }
+
+    public void lobbyUpdateMembers() {
+        try {
+            Summoner self = null;
+            JPanel[] panelArray = {null,null,null,null,null};
+            int index = 0;
+            HttpURLConnection con = mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.GET, "/lol-lobby/v2/lobby", null);
+            JSONObject data = (JSONObject) mainInitiator.getConnectionManager().getResponse(ConnectionManager.responseFormat.JSON_OBJECT, con);
+            con.disconnect();
+            if(data.has("localMember")) {
+                self = mainInitiator.getConnectionManager().SummonerFromJsonObject(data.getJSONObject("localMember"));
+                panelArray[0] = createLobbyMemberPage(self);
+                index++;
+            }
+            if(data.has("members")) {
+                JSONArray jsonMembers = data.getJSONArray("members");
+                for(int i = 0; i < panelArray.length; i++) {
+                    if(i < jsonMembers.length()) {
+                        Summoner summoner = mainInitiator.getConnectionManager().SummonerFromJsonObject(jsonMembers.getJSONObject(i));
+                        if(self != null && summoner.getSummonerId().intValue() == self.getSummonerId().intValue()) {
+                            continue;
+                        } else {
+                            panelArray[index] = createLobbyMemberPage(summoner);
+                        }
+                    } else {
+                        panelArray[index] = createLobbyMemberPage(null);
+                    }
+                    index++;
+                }
+            }
+            if(data.has("gameConfig")) {
+                JSONObject jsonConfig = data.getJSONObject("gameConfig");
+                showSelectedRoles = jsonConfig.getBoolean("showPositionSelector");
+            }
+            if(data.has("gameConfig")) {
+                JSONObject jsonConfig = data.getJSONObject("gameConfig");
+                Integer jsonQueueId = jsonConfig.getInt("queueId");
+                String mapName = queueMap.get(jsonQueueId);
+                if(mapName!= null) {
+                    currentQueue.setText(mapName);
+                } else currentQueue.setText("Unknown Queue");
+                canQueue = true;
+            } else {
+                currentQueue.setText("No Queue");
+                canQueue = false;
+            }
+            panelLobbyMembers.removeAll();
+            panelLobbyMembers.add(panelArray[3]);
+            panelLobbyMembers.add(panelArray[1]);
+            panelLobbyMembers.add(panelArray[0]);
+            panelLobbyMembers.add(panelArray[2]);
+            panelLobbyMembers.add(panelArray[4]);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void refreshLobby() {
-        panelLobby.removeAll();
+        panelLobby.remove(panelLobbyMembers);
+        panelLobby.remove(currentQueue);
+        lobbyUpdateMembers();
+        if(!showSelectedRoles) {
+            panelLobby.remove(comboBoxLobbyPosition1);
+            panelLobby.remove(comboBoxLobbyPositionTwo);
+        }
         if (showSelectedRoles) {
             panelLobby.add(comboBoxLobbyPosition1);
-            panelLobby.add(comboBoxLobbyPositionTwo);
+            if (comboBoxLobbyPosition1.getSelectedIndex() != Positions.length-1) {
+                panelLobby.add(comboBoxLobbyPositionTwo);
+            } else {
+                panelLobby.remove(comboBoxLobbyPositionTwo);
+            }
         }
-        lobbyUpdateMembers();
-        panelLobby.add(btnLobbyFQ);
-        panelLobby.add(btnLobbySQ);
-        panelLobby.add(btnLobbyAram);
-        panelLobby.add(btnLobbySRBlind);
-        panelLobby.add(btnLobbySRDraft);
+        if(canQueue) {
+            panelLobby.add(btnLobbyStartQueue);
+            panelLobby.add(textFieldLobbyInvite);
+            panelLobby.add(btnLobbyInvite);
+        } else {
+            panelLobby.remove(btnLobbyStartQueue);
+            panelLobby.remove(textFieldLobbyInvite);
+            panelLobby.remove(btnLobbyInvite);
+        }
         panelLobby.add(panelLobbyMembers);
-        panelLobby.add(btnLobbyStartQueue);
-        panelLobby.add(DebugRefresh);
         panelLobby.add(currentQueue);
         panelLobby.repaint();
         panelLobby.revalidate();
@@ -180,15 +239,14 @@ public class GUIManager {
 
 
     public void createLobby(int queueId, boolean selectRoles) {
-        this.showSelectedRoles = selectRoles;
         try {
             HttpURLConnection con = mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.POST, "/lol-lobby/v2/lobby", "{\"queueId\":" + queueId + "}");
             con.getResponseCode();
             con.disconnect();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-        refreshLobby();
     }
 
     public void pushAndCheckRoles() {
@@ -202,7 +260,7 @@ public class GUIManager {
             HttpURLConnection con = mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.PUT, "/lol-lobby/v2/lobby/members/localMember/position-preferences", "{\"firstPreference\": \"" + internalPositionNames[comboBoxLobbyPosition1.getSelectedIndex()] + "\",\"secondPreference\":\"" + internalPositionNames[comboBoxLobbyPositionTwo.getSelectedIndex()] + "\"}");
             con.getResponseCode();
             con.disconnect();
-            lobbyUpdateMembers();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -214,7 +272,7 @@ public class GUIManager {
             return null;
         }
         try {
-            URL url = new URL("https://ddragon.leagueoflegends.com/cdn/12.18.1/img/profileicon/" + id + ".png");
+            URL url = new URL("https://ddragon.leagueoflegends.com/cdn/"+mainInitiator.getConnectionManager().version+"/img/profileicon/" + id + ".png");
             return new ImageIcon(createResizedCopy(ImageIO.read(url), 142, 142, true));
         } catch (Exception e) {
             e.printStackTrace();
@@ -256,9 +314,11 @@ public class GUIManager {
         lblLobbyMember1Position1 = new JLabel(summoner.getFirstPositionPreference());
         panelLobbyMember1Positions.add(lblLobbyMember1Position1);
 
-        JLabel lblLobbyMember1Position2;
-        lblLobbyMember1Position2 = new JLabel(summoner.getSecondPositionPreference());
-        panelLobbyMember1Positions.add(lblLobbyMember1Position2);
+        if(!internalPositionNames[6].equals(summoner.getFirstPositionPreference())) {
+            JLabel lblLobbyMember1Position2;
+            lblLobbyMember1Position2 = new JLabel(summoner.getSecondPositionPreference());
+            panelLobbyMember1Positions.add(lblLobbyMember1Position2);
+        }
 
         Component verticalStrutLobbyMember1 = Box.createVerticalStrut(40);
         panelLobbyMember1.add(verticalStrutLobbyMember1, BorderLayout.NORTH);
@@ -303,13 +363,31 @@ public class GUIManager {
         panelTasksOptions.revalidate();
     }
 
+    private void initIcon() {
+        try {
+            File iconPath = new File("assets\\Logo.png");
+            System.out.println(iconPath.getAbsolutePath());
+            ImageIcon icon = new ImageIcon(iconPath.getAbsolutePath().toString());
+            frame.setIconImage(icon.getImage());
+            frame.setTitle("Poro Client");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     public void init() {
+        queueMap.put(430,"Blind Pick");
+        queueMap.put(400,"Draft Pick");
+        queueMap.put(420,"Ranked Solo");
+        queueMap.put(440,"Ranked Flex");
+        queueMap.put(450, "Aram");
+
         frame = new JFrame();
         frame.setBounds(100, 100, 1280, 720);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().setLayout(null);
 
+        initIcon();
 
         panelMainSelector = new JPanel();
         panelMainSelector.setBounds(10, 11, 1244, 90);
@@ -330,6 +408,8 @@ public class GUIManager {
         btnMainSummoner = new JButton("Show Summoner");
         btnMainSummoner.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+                updateSummonerPage();
+                switchMainPage(panelSummoner);
             }
         });
         btnMainSummoner.setBounds(185, 21, 165, 40);
@@ -359,6 +439,111 @@ public class GUIManager {
         frame.getContentPane().add(mainLayeredPage);
         mainLayeredPage.setLayout(null);
 
+        panelSummoner = new JPanel();
+        panelSummoner.setBounds(0,0,1244,558);
+        panelSummoner.setLayout(new GridLayout(1, 0, 0, 0));
+
+        panelSummonerInfo = new JPanel();
+        panelSummoner.add(panelSummonerInfo);
+        panelSummonerInfo.setLayout(null);
+
+        lblSummonerInfoPicture = new JLabel();
+        lblSummonerInfoPicture.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSummonerInfoPicture.setBounds(236, 0, 150, 150);
+        panelSummonerInfo.add(lblSummonerInfoPicture);
+
+        lblSummonerInfoName = new JLabel("Summoner Name");
+        lblSummonerInfoName.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSummonerInfoName.setBounds(236, 186, 150, 30);
+        panelSummonerInfo.add(lblSummonerInfoName);
+
+        progressBarSummonerLvl = new JProgressBar();
+        progressBarSummonerLvl.setBounds(236, 161, 150, 14);
+        panelSummonerInfo.add(progressBarSummonerLvl);
+
+        panelSummonerSettings = new JPanel();
+        panelSummoner.add(panelSummonerSettings);
+        panelSummonerSettings.setLayout(new GridLayout(0, 1, 0, 0));
+
+        panelSummonerSettingsTokens = new JPanel();
+        panelSummonerSettings.add(panelSummonerSettingsTokens);
+        panelSummonerSettingsTokens.setLayout(null);
+
+        btnSummonerSettingsTokensSave = new JButton("Save");
+        btnSummonerSettingsTokensSave.setBounds(482, 238, 130, 30);
+        btnSummonerSettingsTokensSave.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Integer first = null;
+                Integer second = null;
+                Integer third = null;
+                String title= null;
+                try {
+                    first = Integer.parseInt(textSummonerSettingsTokensOne.getText().trim());
+                    second = Integer.parseInt(textSummonerSettingsTokensTwo.getText().trim());
+                    third = Integer.parseInt(textSummonerSettingsTokensThree.getText().trim());
+                    title = textSummonerSettingsTitle.getText();
+                    if(title == null) {
+                        title = "";
+                    }
+                } catch (Exception ex) {
+                    lblSummonerSettingsTokensStatus.setText("Error: Enter Integer values!");
+                    ex.printStackTrace();
+                    return;
+                }
+                lblSummonerSettingsTokensStatus.setText(mainInitiator.getConnectionManager().updatePlayerPreferences(first,second,third,title));
+            }
+        });
+        panelSummonerSettingsTokens.add(btnSummonerSettingsTokensSave);
+
+        textSummonerSettingsTokensOne = new TextField();
+        textSummonerSettingsTokensOne.setBounds(10, 116, 175, 20);
+        panelSummonerSettingsTokens.add(textSummonerSettingsTokensOne);
+
+        textSummonerSettingsTokensTwo = new TextField();
+        textSummonerSettingsTokensTwo.setBounds(219, 116, 175, 20);
+        panelSummonerSettingsTokens.add(textSummonerSettingsTokensTwo);
+
+        textSummonerSettingsTokensThree = new TextField();
+        textSummonerSettingsTokensThree.setBounds(437, 116, 175, 20);
+        panelSummonerSettingsTokens.add(textSummonerSettingsTokensThree);
+
+        lblSummonerSettingsTokensOne = new JLabel("1st Token ID");
+        lblSummonerSettingsTokensOne.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSummonerSettingsTokensOne.setBounds(10, 90, 175, 20);
+        panelSummonerSettingsTokens.add(lblSummonerSettingsTokensOne);
+
+        lblSummonerSettingsTokensTwo = new JLabel("2nd Token ID");
+        lblSummonerSettingsTokensTwo.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSummonerSettingsTokensTwo.setBounds(219, 90, 175, 20);
+        panelSummonerSettingsTokens.add(lblSummonerSettingsTokensTwo);
+
+        lblSummonerSettingsTokensThree = new JLabel("3rd Token ID");
+        lblSummonerSettingsTokensThree.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSummonerSettingsTokensThree.setBounds(437, 90, 175, 20);
+        panelSummonerSettingsTokens.add(lblSummonerSettingsTokensThree);
+
+        textSummonerSettingsTitle = new TextField();
+        textSummonerSettingsTitle.setBounds(219, 200, 175, 20);
+        panelSummonerSettingsTokens.add(textSummonerSettingsTitle);
+
+        lblSummonerSettingsTitle = new JLabel("Title ID");
+        lblSummonerSettingsTitle.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSummonerSettingsTitle.setBounds(219, 174, 175, 20);
+        panelSummonerSettingsTokens.add(lblSummonerSettingsTitle);
+
+        lblSummonerSettingsTokensAndTitles = new JLabel("Tokens and Titles");
+        lblSummonerSettingsTokensAndTitles.setFont(new Font("Tahoma", Font.PLAIN, 20));
+        lblSummonerSettingsTokensAndTitles.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSummonerSettingsTokensAndTitles.setBounds(219, 11, 175, 20);
+        panelSummonerSettingsTokens.add(lblSummonerSettingsTokensAndTitles);
+
+        lblSummonerSettingsTokensStatus = new JLabel("");
+        lblSummonerSettingsTokensStatus.setFont(new Font("Tahoma", Font.PLAIN, 10));
+        lblSummonerSettingsTokensStatus.setBounds(10, 238, 175, 30);
+        panelSummonerSettingsTokens.add(lblSummonerSettingsTokensStatus);
+
+
         panelLobby = new JPanel();
         panelLobby.setBounds(0, 0, 1244, 558);
         mainLayeredPage.add(panelLobby);
@@ -370,7 +555,6 @@ public class GUIManager {
         btnLobbySRBlind.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                currentQueue.setText(btnLobbySRBlind.getText());
                 createLobby(430, false);
             }
         });
@@ -393,7 +577,6 @@ public class GUIManager {
         btnLobbyFQ.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                currentQueue.setText(btnLobbyFQ.getText());
                 createLobby(440, true);
             }
         });
@@ -406,7 +589,6 @@ public class GUIManager {
         btnLobbySRDraft.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                currentQueue.setText(btnLobbySRDraft.getText());
                 createLobby(400, true);
             }
         });
@@ -418,12 +600,11 @@ public class GUIManager {
         btnLobbyAram.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                currentQueue.setText(btnLobbyAram.getText());
                 createLobby(450, false);
             }
         });
         panelLobby.add(btnLobbyAram);
-
+        
 
         comboBoxLobbyPosition1 = new JComboBox(Positions);
         comboBoxLobbyPosition1.setSelectedIndex(0);
@@ -466,21 +647,27 @@ public class GUIManager {
         panelLobbyMembers.setLayout(new GridLayout(1, 0, 0, 0));
 
 
-
-        DebugRefresh = new JButton("DEBUG Refresh");
-        DebugRefresh.setBounds(1145, 524, 89, 23);
-        DebugRefresh.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                refreshLobby();
-            }
-        });
-        panelLobby.add(DebugRefresh);
-
-
         currentQueue = new JLabel("No Queue Selected");
         currentQueue.setBounds(900,11,150,23);
         panelLobby.add(currentQueue);
+
+        textFieldLobbyInvite = new JTextField();
+        textFieldLobbyInvite.setToolTipText("Input Name of Summoner you want to invite");
+        textFieldLobbyInvite.setBounds(820, 525, 270, 20);
+        panelLobby.add(textFieldLobbyInvite);
+        textFieldLobbyInvite.setColumns(10);
+
+        btnLobbyInvite = new JButton("Invite Summoner");
+        btnLobbyInvite.setBounds(1100, 525, 132, 20);
+        btnLobbyInvite.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String summoner = textFieldLobbyInvite.getText();
+                mainInitiator.getConnectionManager().inviteIntoLobby(summoner);
+                textFieldLobbyInvite.setText("");
+            }
+        });
+        panelLobby.add(btnLobbyInvite);
 
         panelTasks = new JPanel();
         panelTasks.setBounds(0, 0, 1244, 558);
@@ -529,7 +716,7 @@ public class GUIManager {
         panelTaskOne.add(rdbtnTaskOneActivate);
 
         txtpnTaskOne = new JTextPane();
-        txtpnTaskOne.setText("Activate this option to Automatically accept Ready Checks \r\n(for now only if you are the one to start the queue)");
+        txtpnTaskOne.setText("Activate this option to Automatically accept Ready Checks");
         txtpnTaskOne.setBounds(6, 37, 500, 134);
         panelTaskOne.add(txtpnTaskOne);
 
@@ -570,7 +757,7 @@ public class GUIManager {
         panelTaskTwo.add(rdbtnTaskTwoActivate);
 
         txtpnTaskTwo = new JTextPane();
-        txtpnTaskTwo.setText("Activate this option if you want to Auto-Pick a certian Champ\r\n(some Bugs still may happen WIP)");
+        txtpnTaskTwo.setText("Activate this option if you want to Auto-Pick a certian Champ\r\n(WIP, but base functionality should work)");
         txtpnTaskTwo.setBounds(6, 37, 500, 134);
         panelTaskTwo.add(txtpnTaskTwo);
 
@@ -675,9 +862,34 @@ public class GUIManager {
         lblTaskOptionsThreeChamp.setBounds(10, 11, 300, 50);
         panelTasksOptionsThree.add(lblTaskOptionsThreeChamp);
 
+        updateSummonerPage();
+        refreshLobby();
 
         frame.setVisible(true);
     }
 
+    private void updateSummonerPage() {
+        Summoner self = (Summoner) mainInitiator.getConnectionManager().getResponse(ConnectionManager.responseFormat.SUMMONER, mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.GET, "/lol-summoner/v1/current-summoner", null));
+        if(self == null) return;
+        JSONObject jsonData = (JSONObject) mainInitiator.getConnectionManager().getResponse(ConnectionManager.responseFormat.JSON_OBJECT, mainInitiator.getConnectionManager().buildConnection(ConnectionManager.conOptions.GET, "/lol-hovercard/v1/friend-info-by-summoner/"+self.getSummonerId(), null));
+        if(jsonData.has("lol")) {
+            JSONObject lolData = jsonData.getJSONObject("lol");
+            if(lolData.has("challengeTokensSelected")) {
+                String selectedTokens = lolData.getString("challengeTokensSelected");
+                tokens:if(selectedTokens != null) {
+                    String tokens[] = selectedTokens.split(",");
+                    if(tokens.length != 3) {break tokens;}
+                    textSummonerSettingsTokensOne.setText(tokens[0].trim());
+                    textSummonerSettingsTokensTwo.setText(tokens[1].trim());
+                    textSummonerSettingsTokensThree.setText(tokens[2].trim());
+                }
+            }
+        }
+        lblSummonerInfoPicture.setIcon(getSummonerIcon(self.getProfileIconId()));
+        lblSummonerInfoPicture.setToolTipText("Profile Icon ID: " +self.getProfileIconId());
+        lblSummonerInfoName.setText(self.getDisplayName());
+        progressBarSummonerLvl.setValue(self.getPercentCompleteForNextLevel());
+        progressBarSummonerLvl.setString(self.getSummonerLevel().toString());
+    }
 };
 

@@ -13,7 +13,7 @@ public class MainInitiator {
     public TaskManager taskManager;
     public UpdateAgent updateAgent;
 
-    public static String[] subscribeEndpoints = {"OnJsonApiEvent_lol-gameflow_v1_gameflow-phase","OnJsonApiEvent_chat_v3_friends","OnJsonApiEvent_lol-lobby_v2_lobby", "OnJsonApiEvent_lol-champ-select_v1_session"};
+    public static String[] subscribeEndpoints = {"OnJsonApiEvent_lol-gameflow_v1_gameflow-phase","OnJsonApiEvent_lol-lobby_v2_lobby", "OnJsonApiEvent_lol-champ-select_v1_session"};
 
     public static void main(String [] args) {
         MainInitiator mainInit = new MainInitiator();
@@ -21,14 +21,16 @@ public class MainInitiator {
     }
 
     public void init() {
+        connectionManager = new ConnectionManager(this);
         client = new SocketClient(this);
         guiManager = new GUIManager(this);
-        connectionManager = new ConnectionManager(this);
         taskManager = new TaskManager(this);
         updateAgent = new UpdateAgent(this);
         connectionManager.init();
-        client.init();
-        guiManager.init();
+        if(connectionManager.authString != null) {
+            client.init();
+            guiManager.init();
+        }
     }
 
     public synchronized  void fireParameterChanged(String s) {
