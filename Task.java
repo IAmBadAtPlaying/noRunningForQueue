@@ -3,6 +3,7 @@ import org.json.JSONObject;
 
 import java.net.HttpURLConnection;
 import java.util.ArrayList;
+import java.util.TimerTask;
 
 public class Task {
     enum tasks {
@@ -64,18 +65,17 @@ public class Task {
 
     public void update(JSONArray array) {
         switch (task) {
-            case AUTO_ACCEPT_QUEUE -> {
+            case AUTO_ACCEPT_QUEUE:
                 updateAutoAcceptQueue(array);
-            }
-            case AUTO_PICK_CHAMP -> {
-                updateAutoPickChamp(array);
-            }
-            case AUTO_BAN_CHAMP -> {
+            break;
+            case AUTO_PICK_CHAMP:
+            updateAutoPickChamp(array);
+            break;
+            case AUTO_BAN_CHAMP:
                 updateAutoBanChamp(array);
-            }
-            default -> {
-
-            }
+            break;
+            default :
+            return;
         }
     }
 
@@ -94,7 +94,7 @@ public class Task {
                     saveDataa.set(1, true);
                 }
                 JSONArray actionArray = outerObject.getJSONObject("data").getJSONArray("actions");
-                System.out.println();
+                System.out.println(actionArray);
                 for (int j = 0; j < actionArray.length(); j++) {
                     JSONArray actionSubArray = actionArray.getJSONArray(j);
                     for(int i = 0; i < actionSubArray.length(); i++) {
@@ -199,15 +199,13 @@ public class Task {
                         return;
                     }
                     switch (currentState) {
-                        case LOBBY -> {
-                            //TODO: Reset Upon Dodge! -> Taskabhängig!
-                        }
-                        case READY_CHECK -> {
+                        case LOBBY:
+                            break;
+                        case READY_CHECK :
                             acceptReadyCheck();
-                        }
-                        case GAME_START -> {
-                        }
-                        default -> {}
+                        break;
+                        case GAME_START :
+                        default:
                     }
                 }
             }

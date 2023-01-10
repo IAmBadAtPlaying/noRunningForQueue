@@ -7,8 +7,6 @@ import org.json.JSONObject;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -65,11 +63,15 @@ public class ConnectionManager {
         }
     }
 
+    public String conError = "Error: Connection cant be established";
+    public String conRespError = "Error: Response Code Error";
     public String[] lockfileContents = null;
     public String authString = null;
     public String preUrl = null;
     public WebSocketClient client = null;
     public MainInitiator mainInitiator = null;
+
+    public String version = null;
 
     public HashMap<String, Integer> ChampHash = new HashMap<>();
 
@@ -77,6 +79,7 @@ public class ConnectionManager {
         this.preUrl = null;
         this.authString = null;
         this.mainInitiator = mainInitiator;
+        this.version = getLatestVersion();
     }
 
 
@@ -97,6 +100,10 @@ public class ConnectionManager {
                         break;
                     }
                 }
+            }
+            if(lockfile == null) {
+                System.out.println("League is not running, will not start!");
+                return;
             }
             is = new FileInputStream(lockfile);
             if (is == null) {
@@ -158,7 +165,7 @@ public class ConnectionManager {
 
     public void buildChampMap() {
         try {
-            String s = getLatestVersion();
+            String s = version;
             URL url = new URL("https://ddragon.leagueoflegends.com/cdn/"+s+"/data/en_US/champion.json");
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod("GET");
@@ -267,6 +274,8 @@ public class ConnectionManager {
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod("GET");
             JSONArray resp = (JSONArray) getResponse(responseFormat.JSON_ARRAY, con);
+            con.disconnect();
+            if(resp == null) return null;
             ver = resp.getString(0);
         } catch (Exception e) {
             e.printStackTrace();
@@ -345,21 +354,41 @@ public class ConnectionManager {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        if (resp != null && jsonSummoner != null) {
-            Summoner summoner = new Summoner(jsonSummoner.getString("puuid"));
-            summoner.setSummonerId(jsonSummoner.getInt("summonerId"));
-            summoner.setSummonerLevel(jsonSummoner.getInt("summonerLevel"));
-            summoner.setAccountId(jsonSummoner.getInt("accountId"));
-            summoner.setDisplayName(jsonSummoner.getString("displayName"));
-            summoner.setInternalName(jsonSummoner.getString("internalName"));
-            summoner.setProfileIconId(jsonSummoner.getInt("profileIconId"));
-            summoner.setPercentCompleteForNextLevel(jsonSummoner.getInt("percentCompleteForNextLevel"));
-            summoner.setXpSinceLastLevel(jsonSummoner.getInt("xpSinceLastLevel"));
-            return summoner;
-        }
-        return null;
+        return SummonerFromJsonObject(jsonSummoner);
     }
 
+    public Summoner SummonerFromJsonObject(JSONObject jsonSummoner) {
+        if(jsonSummoner == null) return null;
+        Summoner summoner = new Summoner(jsonSummoner.getString("puuid"));
+        summoner.setSummonerId(jsonSummoner.getInt("summonerId"));
+        summoner.setSummonerLevel(jsonSummoner.getInt("summonerLevel"));
+        if(jsonSummoner.has("summonerName")) {
+            summoner.setDisplayName(jsonSummoner.getString("summonerName"));
+        }
+        if(jsonSummoner.has("displayName")) {
+            summoner.setDisplayName(jsonSummoner.getString("internalName"));
+        }
+        if(jsonSummoner.has("summonerInternalName")) {
+            summoner.setInternalName(jsonSummoner.getString("summonerInternalName"));
+        }
+        if(jsonSummoner.has("internalName")) {
+            summoner.setInternalName(jsonSummoner.getString("internalName"));
+        }
+        if(jsonSummoner.has("summonerIconId")) {
+            summoner.setProfileIconId(jsonSummoner.getInt("summonerIconId"));
+        }
+        if(jsonSummoner.has("profileIconId")) {
+            summoner.setProfileIconId(jsonSummoner.getInt("profileIconId"));
+        }
+        if(jsonSummoner.has("firstPositionPreference")) {
+            summoner.setFirstPositionPreference(jsonSummoner.getString("firstPositionPreference"));
+            summoner.setSecondPositionPreference(jsonSummoner.getString("secondPositionPreference"));
+        }
+        if(jsonSummoner.has("percentCompleteForNextLevel")) {
+            summoner.setPercentCompleteForNextLevel(jsonSummoner.getInt("percentCompleteForNextLevel"));
+        }
+        return summoner;
+    }
 
     private BufferedImage handleImageResponse (HttpURLConnection con) {
         BufferedImage resp = null;
@@ -373,9 +402,11 @@ public class ConnectionManager {
     }
 
     private JSONArray toJsonArray(String s) {
+        if(s == null) return null;
         return new JSONArray(s);
     }
     private JSONObject toJsonObject(String s) {
+        if(s == null) return null;
         return new JSONObject(s);
     }
 
@@ -389,8 +420,80 @@ public class ConnectionManager {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            return null;
         }
         return resp;
+    }
+
+    public String inviteIntoLobby(String summonerName) {
+        String resp = null;
+        Integer summonerId = null;
+        resp = handleStringResponse(buildConnection(conOptions.GET, "/lol-summoner/v1/summoners?name=" + summonerName, null));
+        if(resp == null || resp.isEmpty()) {
+            return conError;
+        }
+        JSONObject jsonResp = new JSONObject(resp);
+        if(jsonResp.has("summonerId")) {
+            summonerId = jsonResp.getInt("summonerId");
+            HttpURLConnection con = buildConnection(conOptions.POST, "/lol-lobby/v2/lobby/invitations" , "[{\"toSummonerId\": "+summonerId+",\"toSummonerName\":\""+summonerName+"\"}]");
+            if (con == null) return conError;
+            try {
+                Integer respCode = con.getResponseCode();
+                if(con.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    System.out.println("inviteIntoLobby-Error: Expected HTTP_OKAY (200) got: " + respCode);
+                    return "Error: Invitation failed";
+                }
+                return "Success! (WIP)";
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return conRespError;
+    }
+
+    public String updatePlayerPreferences(Integer firstEntry, Integer secondEntry, Integer thirdEntry, String titleId) {
+        String reqBody;
+        reqBody = "{\"challengeIds\":["+firstEntry+","+secondEntry+","+thirdEntry+"],\"title\" : \""+titleId+"\"}";
+        HttpURLConnection con = buildConnection(conOptions.POST, "/lol-challenges/v1/update-player-preferences", reqBody);
+        if (con == null) return conError;
+        try {
+            Integer respCode = con.getResponseCode();
+            con.disconnect();
+            if(respCode== HttpURLConnection.HTTP_NO_CONTENT) {
+                return "Success";
+            }
+            System.out.println("updatePlayerPreferences-Error: Expected HTTP_NO_CONTENT (204) but got: " + respCode);
+            System.out.println(handleStringResponse(con));
+            return "Error: You dont own either title or id";
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return conRespError;
+    }
+
+    public String updateProfileIcon(Integer iconId) {
+        String reqBody = "{\"profileIconId\":"+iconId+"}";
+        HttpURLConnection con = buildConnection(conOptions.PUT, "/lol-summoner/v1/current-summoner/icon", reqBody);
+        if (con == null) return conError;
+        try {
+            Integer respCode = con.getResponseCode();
+            con.disconnect();
+            switch (respCode) {
+                case HttpURLConnection.HTTP_CREATED:
+                    return "Success!";
+                case HttpURLConnection.HTTP_UNAUTHORIZED:
+                    System.out.println("updateProfileIcon-Error: Expected HTTP_CREATED (201) but got: " +respCode);
+                    System.out.println("The user probably doesnt own the icon");
+                    return "Error: You dont own this icon!";
+                default:
+                    System.out.println("updateProfileIcon-Error: Expected HTTP_CREATED (201) but got: " +respCode);
+                    System.out.println("The user probably entered an invalid IconId");
+                    return "Error: Invalid Icon ID!";
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return conRespError;
     }
 
 }
